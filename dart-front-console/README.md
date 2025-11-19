@@ -27,14 +27,16 @@ dart-front-console/
 │   │   ├── 📄 otp.dart         # Modèle Otp (entité)
 │   │   ├── 📁 requests/        # 📨 Modèles de requêtes (Swagger)
 │   │   │   ├── 📄 requests.dart# Export des requests
-│   │   │   ├── 📄 auth_requests.dart   # RegisterRequest, LoginRequest
-│   │   │   ├── 📄 otp_requests.dart    # VerifyOtpRequest, ResendOtpRequest
-│   │   │   └── 📄 compte_requests.dart # PayRequest, TransferRequest, DepotRequest
+│   │   │   ├── 📄 auth_requests.dart        # RegisterRequest, LoginRequest
+│   │   │   ├── 📄 otp_requests.dart         # VerifyOtpRequest, ResendOtpRequest
+│   │   │   ├── 📄 compte_requests.dart      # PayRequest, TransferRequest, DepotRequest
+│   │   │   └── 📄 transaction_requests.dart # TransactionPayRequest, TransactionTransferRequest
 │   │   └── 📁 responses/       # 📥 Modèles de réponses (Swagger)
 │   │       ├── 📄 responses.dart# Export des responses
-│   │       ├── 📄 auth_responses.dart   # RegisterResponse, LoginResponse
-│   │       ├── 📄 otp_responses.dart    # VerifyOtpResponse, SendOtpResponse
-│   │       └── 📄 compte_responses.dart # PayResponse, TransferResponse, etc.
+│   │       ├── 📄 auth_responses.dart        # RegisterResponse, LoginResponse
+│   │       ├── 📄 otp_responses.dart         # VerifyOtpResponse, SendOtpResponse
+│   │       ├── 📄 compte_responses.dart      # PayResponse, TransferResponse, etc.
+│   │       └── 📄 transaction_responses.dart # TransactionPayResponse, TransactionListResponse
 │   └── 📁 services/            # 🔧 Couche d'accès API
 │       ├── 📄 api_service.dart # Classe abstraite HTTP de base
 │       ├── 📄 api_client.dart  # Orchestrateur de tous les services
@@ -339,6 +341,57 @@ class TransferRequest {
 }
 ```
 
+##### **TransactionRequests** - Requêtes de transactions (nécessitent OTP)
+```dart
+// Paiement avec OTP
+class TransactionPayRequest {
+  final double montant;
+  final String description;
+
+  TransactionPayRequest({required this.montant, required this.description});
+
+  bool get isValid => montant > 0 && description.isNotEmpty;
+  Map<String, dynamic> toJson() => {
+    'montant': montant,
+    'description': description,
+  };
+}
+
+// Transfert avec OTP
+class TransactionTransferRequest {
+  final double montant;
+  final String destinataireUuid;
+  final String description;
+
+  TransactionTransferRequest({
+    required this.montant,
+    required this.destinataireUuid,
+    required this.description,
+  });
+
+  bool get isValid => montant > 0 && destinataireUuid.isNotEmpty && description.isNotEmpty;
+  Map<String, dynamic> toJson() => {
+    'montant': montant,
+    'destinataire_uuid': destinataireUuid,
+    'description': description,
+  };
+}
+
+// Dépôt d'argent
+class TransactionDepotRequest {
+  final double montant;
+  final String description;
+
+  TransactionDepotRequest({required this.montant, required this.description});
+
+  bool get isValid => montant > 0 && description.isNotEmpty;
+  Map<String, dynamic> toJson() => {
+    'montant': montant,
+    'description': description,
+  };
+}
+```
+
 #### **Modèles de réponses** (`lib/models/responses/`)
 Structures conformes aux réponses Swagger :
 
@@ -441,6 +494,86 @@ class PayResponse {
   double get montant => donnees?['montant'] ?? 0.0;
   String get marchand => donnees?['marchand'] ?? '';
   double get nouveauSolde => donnees?['nouveau_solde'] ?? 0.0;
+}
+```
+
+##### **TransactionResponses** - Réponses de transactions
+```dart
+// Réponse de paiement avec OTP
+class TransactionPayResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+
+  factory TransactionPayResponse.fromJson(Map<String, dynamic> json) {
+    return TransactionPayResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+    );
+  }
+
+  String? get transactionId => donnees?['transaction_id'];
+  double? get montant => donnees?['montant'];
+  bool get otpRequired => donnees?['otp_required'] ?? false;
+  DateTime? get expireAt => donnees?['expire_at'] != null
+      ? DateTime.parse(donnees!['expire_at']) : null;
+}
+
+// Réponse de transfert avec OTP
+class TransactionTransferResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+
+  factory TransactionTransferResponse.fromJson(Map<String, dynamic> json) {
+    return TransactionTransferResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+    );
+  }
+
+  String? get transactionId => donnees?['transaction_id'];
+  double? get montant => donnees?['montant'];
+  String? get destinataireUuid => donnees?['destinataire_uuid'];
+  bool get otpRequired => donnees?['otp_required'] ?? false;
+}
+
+// Réponse de dépôt
+class TransactionDepotResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+
+  factory TransactionDepotResponse.fromJson(Map<String, dynamic> json) {
+    return TransactionDepotResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+    );
+  }
+
+  double? get nouveauSolde => donnees?['nouveau_solde'];
+  double? get montantDepose => donnees?['montant_depose'];
+}
+
+// Réponse de liste des transactions
+class TransactionListResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+
+  factory TransactionListResponse.fromJson(Map<String, dynamic> json) {
+    return TransactionListResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+    );
+  }
+
+  List<Map<String, dynamic>> get transactions =>
+      List<Map<String, dynamic>>.from(donnees?['transactions'] ?? []);
 }
 ```
 
@@ -878,6 +1011,13 @@ Si vous voulez utiliser `dio` au lieu de `http` :
 | `/transactions/depot` | POST | Dépôt d'argent | TransactionService |
 | `/transactions` | GET | Liste transactions | TransactionService |
 | `/transactions/{uuid}` | GET | Détail transaction | TransactionService |
+| `TransactionPayRequest` | - | Modèle requête paiement | transaction_requests.dart |
+| `TransactionTransferRequest` | - | Modèle requête transfert | transaction_requests.dart |
+| `TransactionDepotRequest` | - | Modèle requête dépôt | transaction_requests.dart |
+| `TransactionPayResponse` | - | Modèle réponse paiement | transaction_responses.dart |
+| `TransactionTransferResponse` | - | Modèle réponse transfert | transaction_responses.dart |
+| `TransactionDepotResponse` | - | Modèle réponse dépôt | transaction_responses.dart |
+| `TransactionListResponse` | - | Modèle réponse liste | transaction_responses.dart |
 | `/distributeurs` | GET | Liste distributeurs | DistributeurService |
 
 ---

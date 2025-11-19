@@ -2,3 +2,4 @@
 export 'auth_requests.dart';
 export 'otp_requests.dart';
 export 'compte_requests.dart';
+export 'transaction_requests.dart';

@@ -36,7 +36,7 @@ class Solde {
     };
   }
 
-  // 🧮 Méthodes utilitaires pour le solde
+  // Méthodes utilitaires pour le solde
   bool get isPositif => montant > 0;
   bool get isNegatif => montant < 0;
   bool get isZero => montant == 0;
