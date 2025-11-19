@@ -15,24 +15,35 @@ Créer un client Dart qui communique avec l'API OmPay en respectant une architec
 
 ```
 dart-front-console/
-├── bin/
-│   └── main.dart              # Point d'entrée de l'application console
-├── lib/
-│   ├── models/                # Modèles de données (DTOs)
-│   │   ├── models.dart        # Export de tous les modèles
-│   │   ├── user.dart          # Modèle User
-│   │   ├── transaction.dart   # Modèle Transaction
-│   │   ├── distributeur.dart  # Modèle Distributeur
-│   │   └── otp.dart           # Modèle Otp
-│   └── services/              # Couche d'accès aux données (API)
-│       ├── api_service.dart   # Classe abstraite de base pour les appels HTTP
-│       ├── api_client.dart    # Gestionnaire centralisé de tous les services
-│       ├── auth_service.dart  # Service d'authentification
-│       ├── otp_service.dart   # Service de gestion des codes OTP
-│       ├── compte_service.dart # Service de gestion du compte
-│       ├── transaction_service.dart # Service des transactions
-│       └── distributeur_service.dart # Service des distributeurs
-└── pubspec.yaml               # Configuration du projet Dart
+├── 📄 pubspec.yaml              # Configuration du projet
+├── 📁 bin/
+│   └── 📄 main.dart            # 🔥 POINT D'ENTRÉE PRINCIPAL
+├── 📁 lib/
+│   ├── 📁 models/              # 🏗️ DTOs (Data Transfer Objects)
+│   │   ├── 📄 models.dart      # Export centralisé de TOUS les modèles
+│   │   ├── 📄 user.dart        # Modèle User (entité)
+│   │   ├── 📄 transaction.dart # Modèle Transaction (entité)
+│   │   ├── 📄 distributeur.dart# Modèle Distributeur (entité)
+│   │   ├── 📄 otp.dart         # Modèle Otp (entité)
+│   │   ├── 📁 requests/        # 📨 Modèles de requêtes (Swagger)
+│   │   │   ├── 📄 requests.dart# Export des requests
+│   │   │   ├── 📄 auth_requests.dart   # RegisterRequest, LoginRequest
+│   │   │   ├── 📄 otp_requests.dart    # VerifyOtpRequest, ResendOtpRequest
+│   │   │   └── 📄 compte_requests.dart # PayRequest, TransferRequest, DepotRequest
+│   │   └── 📁 responses/       # 📥 Modèles de réponses (Swagger)
+│   │       ├── 📄 responses.dart# Export des responses
+│   │       ├── 📄 auth_responses.dart   # RegisterResponse, LoginResponse
+│   │       ├── 📄 otp_responses.dart    # VerifyOtpResponse, SendOtpResponse
+│   │       └── 📄 compte_responses.dart # PayResponse, TransferResponse, etc.
+│   └── 📁 services/            # 🔧 Couche d'accès API
+│       ├── 📄 api_service.dart # Classe abstraite HTTP de base
+│       ├── 📄 api_client.dart  # Orchestrateur de tous les services
+│       ├── 📄 auth_service.dart# Service d'authentification
+│       ├── 📄 otp_service.dart # Service des codes OTP
+│       ├── 📄 compte_service.dart# Service du compte utilisateur
+│       ├── 📄 transaction_service.dart# Service des transactions
+│       └── 📄 distributeur_service.dart# Service des distributeurs
+└── 📄 README.md                # Documentation générale
 ```
 
 ### 🏛️ Principes architecturaux
@@ -46,10 +57,24 @@ dart-front-console/
 
 #### 2. **Modèles de données (DTOs)**
 Les modèles dans `lib/models/` représentent les entités de l'API :
+
+##### **Entités de base** (`user.dart`, `transaction.dart`, etc.)
 - **Sérialisation/Désérialisation** : Conversion automatique JSON ↔ objets Dart
 - **Type safety** : Propriétés typées au lieu de `Map<String, dynamic>`
 - **Méthodes utilitaires** : Logique métier et formatage inclus
 - **Relations** : Gestion des liens entre entités (ex: Transaction → User)
+
+##### **Modèles de requêtes** (`lib/models/requests/`)
+Basés sur les formats Swagger de l'API OmPay :
+- **Validation intégrée** : Méthode `isValid` pour vérifier les données
+- **Sérialisation** : `toJson()` pour conversion vers format API
+- **Type safety** : Propriétés typées selon la spécification Swagger
+
+##### **Modèles de réponses** (`lib/models/responses/`)
+Structures de réponses conformes au Swagger :
+- **Gestion d'erreurs** : Champs `erreurs` et `hasErrors`
+- **Données typées** : Accès aux données via des getters spécialisés
+- **Validation de succès** : Propriété `isSuccess`
 
 #### 3. **Héritage et polymorphisme**
 Tous les services spécialisés héritent d'`ApiService`, garantissant :
@@ -220,6 +245,205 @@ class DistributeurService extends ApiService {
 
 Les modèles dans `lib/models/` sont des classes Dart typées qui représentent les entités de l'API OmPay :
 
+#### **Modèles d'entités** (User, Transaction, etc.)
+Voir la section "Modèles de données (DTOs)" plus haut.
+
+#### **Modèles de requêtes** (`lib/models/requests/`)
+Basés exactement sur les spécifications Swagger de l'API :
+
+##### **AuthRequests** - Requêtes d'authentification
+```dart
+// Inscription utilisateur
+class RegisterRequest {
+  final String nom;
+  final String telephone;
+  final String pin;
+
+  RegisterRequest({
+    required this.nom,
+    required this.telephone,
+    required this.pin,
+  });
+
+  bool get isValid => nom.isNotEmpty && telephone.isNotEmpty && pin.length == 4;
+  Map<String, dynamic> toJson() => {'nom': nom, 'telephone': telephone, 'pin': pin};
+}
+
+// Connexion utilisateur
+class LoginRequest {
+  final String telephone;
+  final String pin;
+
+  LoginRequest({required this.telephone, required this.pin});
+
+  bool get isValid => telephone.isNotEmpty && pin.length == 4;
+  Map<String, dynamic> toJson() => {'telephone': telephone, 'pin': pin};
+}
+```
+
+##### **OtpRequests** - Requêtes de codes OTP
+```dart
+// Vérification de code OTP
+class VerifyOtpRequest {
+  final String telephone;
+  final String code;
+  final String type; // 'inscription', 'connexion', 'transaction'
+
+  VerifyOtpRequest({
+    required this.telephone,
+    required this.code,
+    required this.type,
+  });
+
+  bool get isValid =>
+      telephone.isNotEmpty &&
+      code.length == 4 &&
+      ['inscription', 'connexion', 'transaction'].contains(type);
+
+  Map<String, dynamic> toJson() => {
+    'telephone': telephone,
+    'code': code,
+    'type': type,
+  };
+}
+```
+
+##### **CompteRequests** - Requêtes de compte
+```dart
+// Paiement marchand
+class PayRequest {
+  final double montant;
+  final String codeMarchand;
+
+  PayRequest({required this.montant, required this.codeMarchand});
+
+  bool get isValid => montant > 0 && codeMarchand.isNotEmpty;
+  Map<String, dynamic> toJson() => {
+    'montant': montant,
+    'code_marchand': codeMarchand,
+  };
+}
+
+// Transfert d'argent
+class TransferRequest {
+  final double montant;
+  final String numeroDestinataire;
+
+  TransferRequest({required this.montant, required this.numeroDestinataire});
+
+  bool get isValid => montant > 0 && numeroDestinataire.isNotEmpty;
+  Map<String, dynamic> toJson() => {
+    'montant': montant,
+    'numero_destinataire': numeroDestinataire,
+  };
+}
+```
+
+#### **Modèles de réponses** (`lib/models/responses/`)
+Structures conformes aux réponses Swagger :
+
+##### **AuthResponses** - Réponses d'authentification
+```dart
+// Réponse de base (commune à toutes)
+class ApiResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+  final Map<String, dynamic>? erreurs;
+
+  bool get isSuccess => succes;
+  bool get hasErrors => erreurs != null && erreurs!.isNotEmpty;
+}
+
+// Réponse d'inscription
+class RegisterResponse extends ApiResponse {
+  factory RegisterResponse.fromJson(Map<String, dynamic> json) {
+    return RegisterResponse(
+      succes: json['succes'],
+      message: json['message'],
+      donnees: json['donnees'],
+      erreurs: json['erreurs'],
+    );
+  }
+
+  User? get utilisateur => donnees?['utilisateur'] != null
+      ? User.fromJson(donnees!['utilisateur'])
+      : null;
+
+  String? get messageComplementaire => donnees?['message_complementaire'];
+}
+```
+
+##### **OtpResponses** - Réponses de codes OTP
+```dart
+// Réponse de vérification OTP
+class VerifyOtpResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+  final Map<String, dynamic>? erreurs;
+
+  factory VerifyOtpResponse.fromJson(Map<String, dynamic> json) {
+    return VerifyOtpResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+      erreurs: json['erreurs'],
+    );
+  }
+
+  String? get telephone => donnees?['telephone'];
+  String? get type => donnees?['type'];
+  bool get verifie => donnees?['verifie'] ?? false;
+  String? get token => donnees?['token']; // JWT pour connexion
+
+  bool get isSuccess => succes;
+  bool get hasToken => token != null && token!.isNotEmpty;
+}
+```
+
+##### **CompteResponses** - Réponses de compte
+```dart
+// Réponse d'informations compte
+class CompteInfoResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+
+  factory CompteInfoResponse.fromJson(Map<String, dynamic> json) {
+    return CompteInfoResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+    );
+  }
+
+  Map<String, dynamic>? get utilisateur => donnees?['utilisateur'];
+  double get solde => donnees?['solde'] ?? 0.0;
+  String? get qrCode => donnees?['qr_code'];
+}
+
+// Réponse de paiement
+class PayResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+
+  factory PayResponse.fromJson(Map<String, dynamic> json) {
+    return PayResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+    );
+  }
+
+  String get type => donnees?['type'] ?? '';
+  double get montant => donnees?['montant'] ?? 0.0;
+  String get marchand => donnees?['marchand'] ?? '';
+  double get nouveauSolde => donnees?['nouveau_solde'] ?? 0.0;
+}
+```
+
 #### **User** - Utilisateur du système
 ```dart
 class User {
@@ -332,8 +556,91 @@ Interface utilisateur console avec menus interactifs :
 
 - **Boucle principale** : Gère l'état d'authentification
 - **Menus** : Authentification et fonctionnalités principales
-- **Handlers** : Traitement des actions utilisateur
+- **Handlers** : Traitement des actions utilisateur avec modèles Request/Response
 - **Gestion d'erreurs** : Affichage des messages d'erreur de l'API
+
+#### **Utilisation des modèles Request/Response**
+```dart
+// Exemple d'inscription avec modèles typés
+Future<String?> handleRegister(ApiClient apiClient) async {
+  // 📝 Saisie des données
+  stdout.write('Nom : ');
+  final nom = stdin.readLineSync()?.trim() ?? '';
+
+  stdout.write('Téléphone : ');
+  final telephone = stdin.readLineSync()?.trim() ?? '';
+
+  stdout.write('PIN (4 chiffres) : ');
+  final pin = stdin.readLineSync()?.trim() ?? '';
+
+  // 🏗️ Création du modèle de requête
+  final request = RegisterRequest(
+    nom: nom,
+    telephone: telephone,
+    pin: pin,
+  );
+
+  // ✅ Validation côté client
+  if (!request.isValid) {
+    print('❌ Données invalides');
+    return null;
+  }
+
+  try {
+    // 📡 Appel API avec sérialisation automatique
+    final response = await apiClient.auth.register(
+      nom: request.nom,
+      telephone: request.telephone,
+      pin: request.pin,
+    );
+
+    // 📥 Utilisation du modèle de réponse
+    final registerResponse = RegisterResponse.fromJson(response);
+
+    if (registerResponse.isSuccess) {
+      print('✅ ${registerResponse.message}');
+      print('📱 Un code OTP a été envoyé à votre téléphone');
+
+      // 🔐 Vérification OTP avec modèle typé
+      stdout.write('Code OTP reçu : ');
+      final otpCode = stdin.readLineSync()?.trim() ?? '';
+
+      final otpRequest = VerifyOtpRequest(
+        telephone: telephone,
+        code: otpCode,
+        type: 'inscription',
+      );
+
+      if (!otpRequest.isValid) {
+        print('❌ Code OTP invalide');
+        return null;
+      }
+
+      final otpResponse = await apiClient.otp.verifyOtp(
+        telephone: otpRequest.telephone,
+        code: otpRequest.code,
+        type: otpRequest.type,
+      );
+
+      final verifyResponse = VerifyOtpResponse.fromJson(otpResponse);
+
+      if (verifyResponse.isSuccess && verifyResponse.hasToken) {
+        print('✅ Inscription finalisée avec succès !');
+        return verifyResponse.token;  // 🔑 Token JWT
+      } else {
+        print('❌ ${verifyResponse.message}');
+        return null;
+      }
+    } else {
+      print('❌ ${registerResponse.message}');
+      return null;
+    }
+  } catch (e) {
+    print('❌ Erreur lors de l\'inscription: $e');
+    return null;
+  }
+}
+```
 
 ---
 
@@ -363,6 +670,18 @@ Interface utilisateur console avec menus interactifs :
 - **Détection d'erreurs** : Erreurs de compilation pour les propriétés manquantes
 - **IntelliSense** : Autocomplétion et navigation dans le code
 - **Réfactoring sécurisé** : Changements d'API propagés automatiquement
+
+### 2. **Conformité Swagger parfaite**
+- **Requests exactes** : Modèles de requêtes conformes aux spécifications API
+- **Responses précises** : Structures de réponses identiques au Swagger
+- **Validation intégrée** : Méthodes `isValid` pour vérifier les données côté client
+- **Sérialisation automatique** : `toJson()` et `fromJson()` pour conversion transparente
+
+### 3. **Contrats d'API explicites**
+- **Documentation vivante** : Les modèles servent de documentation technique
+- **Tests facilités** : Validation des structures de données
+- **Maintenance simplifiée** : Changements d'API détectés à la compilation
+- **Évolution contrôlée** : Modifications des contrats clairement identifiées
 
 ### 2. **Extensibilité**
 - **Ajout de nouveaux services** : Héritage simple d'ApiService
@@ -397,7 +716,76 @@ Interface utilisateur console avec menus interactifs :
 const String baseUrl = 'https://votre-api-ompay.com/api';
 ```
 
-### Ajouter un nouveau modèle (DTO)
+### Ajouter un nouveau modèle de requête (basé sur Swagger)
+```dart
+// Créer dans lib/models/requests/nouveau_requests.dart
+class NouveauRequest {
+  final String champObligatoire;
+  final int? champOptionnel;
+
+  NouveauRequest({
+    required this.champObligatoire,
+    this.champOptionnel,
+  });
+
+  // Validation selon Swagger
+  bool get isValid => champObligatoire.trim().isNotEmpty;
+
+  // Sérialisation selon format API
+  Map<String, dynamic> toJson() {
+    return {
+      'champ_obligatoire': champObligatoire.trim(),
+      if (champOptionnel != null) 'champ_optionnel': champOptionnel,
+    };
+  }
+}
+
+// L'exporter dans lib/models/requests/requests.dart
+export 'nouveau_requests.dart';
+```
+
+### Ajouter un nouveau modèle de réponse (basé sur Swagger)
+```dart
+// Créer dans lib/models/responses/nouveau_responses.dart
+class NouveauResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+  final Map<String, dynamic>? erreurs;
+
+  NouveauResponse({
+    required this.succes,
+    required this.message,
+    this.donnees,
+    this.erreurs,
+  });
+
+  // Constructeur depuis JSON API
+  factory NouveauResponse.fromJson(Map<String, dynamic> json) {
+    return NouveauResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+      erreurs: json['erreurs'],
+    );
+  }
+
+  // Getters spécialisés selon Swagger
+  String? get resultatSpecifique => donnees?['resultat_specifique'];
+  List<String>? get listeResultats => donnees?['liste_resultats'] != null
+      ? List<String>.from(donnees!['liste_resultats'])
+      : null;
+
+  // Vérifications
+  bool get isSuccess => succes;
+  bool get hasErrors => erreurs != null && erreurs!.isNotEmpty;
+}
+
+// L'exporter dans lib/models/responses/responses.dart
+export 'nouveau_responses.dart';
+```
+
+### Ajouter un nouveau modèle d'entité (DTO)
 ```dart
 // Créer le modèle dans lib/models/
 class NouveauModele {
