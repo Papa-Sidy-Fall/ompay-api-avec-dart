@@ -18,6 +18,12 @@ dart-front-console/
 ├── bin/
 │   └── main.dart              # Point d'entrée de l'application console
 ├── lib/
+│   ├── models/                # Modèles de données (DTOs)
+│   │   ├── models.dart        # Export de tous les modèles
+│   │   ├── user.dart          # Modèle User
+│   │   ├── transaction.dart   # Modèle Transaction
+│   │   ├── distributeur.dart  # Modèle Distributeur
+│   │   └── otp.dart           # Modèle Otp
 │   └── services/              # Couche d'accès aux données (API)
 │       ├── api_service.dart   # Classe abstraite de base pour les appels HTTP
 │       ├── api_client.dart    # Gestionnaire centralisé de tous les services
@@ -32,18 +38,26 @@ dart-front-console/
 ### 🏛️ Principes architecturaux
 
 #### 1. **Séparation des responsabilités**
+- **Models (DTOs)** : Structures de données typées pour les entités API
 - **ApiService** : Gère uniquement les appels HTTP de base
 - **Services spécialisés** : Chaque service gère un domaine métier spécifique
 - **ApiClient** : Orchestre tous les services
 - **Main** : Interface utilisateur et logique applicative
 
-#### 2. **Héritage et polymorphisme**
+#### 2. **Modèles de données (DTOs)**
+Les modèles dans `lib/models/` représentent les entités de l'API :
+- **Sérialisation/Désérialisation** : Conversion automatique JSON ↔ objets Dart
+- **Type safety** : Propriétés typées au lieu de `Map<String, dynamic>`
+- **Méthodes utilitaires** : Logique métier et formatage inclus
+- **Relations** : Gestion des liens entre entités (ex: Transaction → User)
+
+#### 3. **Héritage et polymorphisme**
 Tous les services spécialisés héritent d'`ApiService`, garantissant :
 - Une interface commune pour les appels HTTP
 - Une gestion centralisée des tokens d'authentification
 - Une facilité de maintenance et d'extension
 
-#### 3. **Programmation asynchrone**
+#### 4. **Programmation asynchrone**
 - Utilisation systématique de `Future<T>` pour les opérations I/O
 - `async/await` pour un code plus lisible
 - Gestion d'erreur appropriée avec `try/catch`
@@ -202,6 +216,93 @@ class DistributeurService extends ApiService {
 }
 ```
 
+### 5. **Modèles de données (DTOs)**
+
+Les modèles dans `lib/models/` sont des classes Dart typées qui représentent les entités de l'API OmPay :
+
+#### **User** - Utilisateur du système
+```dart
+class User {
+  final int id;
+  final String uuid;
+  final String nom;
+  final String telephone;
+  final String statut; // 'actif', 'inactif', 'admin'
+  final double solde;
+  final String? qrCode;
+
+  // Méthodes utilitaires
+  bool get isActive => statut == 'actif';
+  bool get isAdmin => statut == 'admin';
+
+  // Sérialisation
+  factory User.fromJson(Map<String, dynamic> json);
+  Map<String, dynamic> toJson();
+}
+```
+
+#### **Transaction** - Opération financière
+```dart
+class Transaction {
+  final String uuid;
+  final String utilisateurUuid;
+  final String type; // 'payer', 'transfert', 'depot'
+  final double montant;
+  final String description;
+  final String statut; // 'en_attente', 'confirmee', 'annulee'
+  final User? destinataire; // Relation optionnelle
+
+  // Méthodes utilitaires
+  bool get isDebit => montant < 0;
+  bool get isCredit => montant > 0;
+  String get typeIcon => type == 'payer' ? '💳' : '💸';
+  String get montantFormatted; // Formatage automatique
+
+  // Sérialisation
+  factory Transaction.fromJson(Map<String, dynamic> json);
+  Map<String, dynamic> toJson();
+}
+```
+
+#### **Distributeur** - Point de dépôt/distribution
+```dart
+class Distributeur {
+  final int id;
+  final String nom;
+  final String adresse;
+  final String statut; // 'actif', 'inactif'
+
+  // Méthodes utilitaires
+  bool get isActive => statut == 'actif';
+  String get displayInfo => '$nom - $adresse';
+
+  // Sérialisation
+  factory Distributeur.fromJson(Map<String, dynamic> json);
+  Map<String, dynamic> toJson();
+}
+```
+
+#### **Otp** - Code de vérification
+```dart
+class Otp {
+  final int id;
+  final String telephone;
+  final String code;
+  final String type; // 'inscription', 'connexion', 'transaction'
+  final DateTime expireAt;
+  final bool utilise;
+
+  // Méthodes utilitaires
+  bool get isExpired => DateTime.now().isAfter(expireAt);
+  bool get isValid => !utilise && !isExpired;
+  String get timeRemainingFormatted; // "2:45"
+
+  // Sérialisation
+  factory Otp.fromJson(Map<String, dynamic> json);
+  Map<String, dynamic> toJson();
+}
+```
+
 ### 3. **ApiClient** (`lib/services/api_client.dart`)
 
 Gestionnaire centralisé qui instancie et orchestre tous les services :
@@ -257,25 +358,35 @@ Interface utilisateur console avec menus interactifs :
 
 ## 💡 Avantages de l'architecture
 
-### 1. **Extensibilité**
+### 1. **Type Safety avec les DTOs**
+- **Modèles typés** : Remplacement de `Map<String, dynamic>` par des classes structurées
+- **Détection d'erreurs** : Erreurs de compilation pour les propriétés manquantes
+- **IntelliSense** : Autocomplétion et navigation dans le code
+- **Réfactoring sécurisé** : Changements d'API propagés automatiquement
+
+### 2. **Extensibilité**
 - **Ajout de nouveaux services** : Héritage simple d'ApiService
 - **Nouveaux endpoints** : Ajout direct dans le service approprié
+- **Nouveaux modèles** : Création indépendante des DTOs
 - **Changement de bibliothèque HTTP** : Modification uniquement d'ApiService
 
-### 2. **Maintenabilité**
-- **Séparation claire** : Chaque service a une responsabilité unique
-- **Code réutilisable** : Services indépendants les uns des autres
-- **Tests facilités** : Chaque service testable individuellement
+### 3. **Maintenabilité**
+- **Séparation claire** : Services, modèles et UI clairement séparés
+- **Code réutilisable** : Services et modèles indépendants
+- **Tests facilités** : Chaque composant testable individuellement
+- **Documentation vivante** : Modèles comme contrat d'API
 
-### 3. **Robustesse**
+### 4. **Robustesse**
 - **Gestion d'erreurs centralisée** : ApiService gère tous les cas d'erreur HTTP
 - **Authentification automatique** : Token géré de manière transparente
 - **Validation des données** : Vérifications côté API et côté client
+- **Sérialisation sécurisée** : Conversion JSON gérée par les modèles
 
-### 4. **Performance**
+### 5. **Performance**
 - **Connexions HTTP optimisées** : Utilisation du package `http` officiel
 - **Programmation asynchrone** : Interface non-bloquante
 - **Réutilisation des connexions** : Gestion automatique par Dart
+- **Parsing efficace** : Désérialisation directe vers objets typés
 
 ---
 
@@ -284,6 +395,45 @@ Interface utilisateur console avec menus interactifs :
 ### Changer l'URL de l'API
 ```dart
 const String baseUrl = 'https://votre-api-ompay.com/api';
+```
+
+### Ajouter un nouveau modèle (DTO)
+```dart
+// Créer le modèle dans lib/models/
+class NouveauModele {
+  final int id;
+  final String nom;
+  final DateTime? createdAt;
+
+  NouveauModele({
+    required this.id,
+    required this.nom,
+    this.createdAt,
+  });
+
+  // Constructeur depuis JSON
+  factory NouveauModele.fromJson(Map<String, dynamic> json) {
+    return NouveauModele(
+      id: json['id'] ?? 0,
+      nom: json['nom'] ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
+    );
+  }
+
+  // Conversion vers JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nom': nom,
+      if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+    };
+  }
+}
+
+// L'exporter dans lib/models/models.dart
+export 'nouveau_modele.dart';
 ```
 
 ### Ajouter un nouveau service
