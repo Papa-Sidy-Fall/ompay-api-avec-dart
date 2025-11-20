@@ -1,44 +1,41 @@
+import '../models/models.dart';
 import 'api_service.dart';
 
 class CompteService extends ApiService {
   CompteService(String baseUrl) : super(baseUrl);
 
   // Récupérer les informations du compte
-  Future<Map<String, dynamic>> getCompte() async {
-    return await get('/compte');
+  Future<CompteInfoResponse> getCompte() async {
+    final rawResponse = await get('/compte');
+    return CompteInfoResponse.fromJson(rawResponse);
   }
 
   // Récupérer le solde du compte
-  Future<Map<String, dynamic>> getSolde(int userId) async {
-    return await get('/compte/$userId/solde');
+  Future<SoldeResponse> getSolde(int userId) async {
+    final rawResponse = await get('/compte/$userId/solde');
+    return SoldeResponse.fromJson(rawResponse);
   }
 
-  // Effectuer un paiement marchand
-  Future<Map<String, dynamic>> payer({
+  // Effectuer un paiement marchand avec modèle de requête
+  Future<PayResponse> payer({
     required int userId,
-    required double montant,
-    required String codeMarchand,
+    required PayRequest request,
   }) async {
-    return await post('/compte/$userId/payer', {
-      'montant': montant,
-      'code_marchand': codeMarchand,
-    });
+    final rawResponse = await post('/compte/$userId/payer', request.toJson());
+    return PayResponse.fromJson(rawResponse);
   }
 
-  // Effectuer un transfert
-  Future<Map<String, dynamic>> transfert({
+  // Effectuer un transfert avec modèle de requête
+  Future<TransferResponse> transfert({
     required int userId,
-    required double montant,
-    required String numeroDestinataire,
+    required TransferRequest request,
   }) async {
-    return await post('/compte/$userId/transfert', {
-      'montant': montant,
-      'numero_destinataire': numeroDestinataire,
-    });
+    final rawResponse = await post('/compte/$userId/transfert', request.toJson());
+    return TransferResponse.fromJson(rawResponse);
   }
 
   // Récupérer les transactions du compte
-  Future<Map<String, dynamic>> getTransactions(int userId, {
+  Future<TransactionsResponse> getTransactions(int userId, {
     String? type,
     int? perPage,
   }) async {
@@ -52,6 +49,7 @@ class CompteService extends ApiService {
       endpoint += '?' + queryParams.entries.map((e) => '${e.key}=${e.value}').join('&');
     }
 
-    return await get(endpoint);
+    final rawResponse = await get(endpoint);
+    return TransactionsResponse.fromJson(rawResponse);
   }
 }

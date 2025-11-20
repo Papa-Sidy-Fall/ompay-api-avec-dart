@@ -27,7 +27,16 @@ class CompteInfoResponse {
 
   // Données spécifiques au compte
   Map<String, dynamic>? get utilisateur => donnees?['utilisateur'];
-  double get solde => donnees?['solde'] ?? 0.0;
+
+  // Le solde peut être retourné comme String ou double par Laravel
+  double get solde {
+    final soldeValue = donnees?['solde'];
+    if (soldeValue is double) return soldeValue;
+    if (soldeValue is int) return soldeValue.toDouble();
+    if (soldeValue is String) return double.tryParse(soldeValue) ?? 0.0;
+    return 0.0;
+  }
+
   String? get qrCode => donnees?['qr_code'];
 
   // Vérifications de statut
@@ -65,7 +74,13 @@ class SoldeResponse {
   }
 
   // Données spécifiques au solde
-  double get solde => donnees?['solde'] ?? 0.0;
+  double get solde {
+    final soldeValue = donnees?['solde'];
+    if (soldeValue is double) return soldeValue;
+    if (soldeValue is int) return soldeValue.toDouble();
+    if (soldeValue is String) return double.tryParse(soldeValue) ?? 0.0;
+    return 0.0;
+  }
 
   // Vérifications de statut
   bool get isSuccess => succes;
@@ -103,9 +118,21 @@ class PayResponse {
 
   // Données spécifiques au paiement
   String get type => donnees?['type'] ?? '';
-  double get montant => donnees?['montant'] ?? 0.0;
+  double get montant {
+    final montantValue = donnees?['montant'];
+    if (montantValue is double) return montantValue;
+    if (montantValue is int) return montantValue.toDouble();
+    if (montantValue is String) return double.tryParse(montantValue) ?? 0.0;
+    return 0.0;
+  }
   String get marchand => donnees?['marchand'] ?? '';
-  double get nouveauSolde => donnees?['nouveau_solde'] ?? 0.0;
+  double get nouveauSolde {
+    final soldeValue = donnees?['nouveau_solde'];
+    if (soldeValue is double) return soldeValue;
+    if (soldeValue is int) return soldeValue.toDouble();
+    if (soldeValue is String) return double.tryParse(soldeValue) ?? 0.0;
+    return 0.0;
+  }
 
   // Vérifications de statut
   bool get isSuccess => succes;
@@ -143,10 +170,22 @@ class TransferResponse {
 
   // Données spécifiques au transfert
   String get type => donnees?['type'] ?? '';
-  double get montant => donnees?['montant'] ?? 0.0;
+  double get montant {
+    final montantValue = donnees?['montant'];
+    if (montantValue is double) return montantValue;
+    if (montantValue is int) return montantValue.toDouble();
+    if (montantValue is String) return double.tryParse(montantValue) ?? 0.0;
+    return 0.0;
+  }
   String get destinataire => donnees?['destinataire'] ?? '';
   String get numeroDestinataire => donnees?['numero_destinataire'] ?? '';
-  double get nouveauSolde => donnees?['nouveau_solde'] ?? 0.0;
+  double get nouveauSolde {
+    final soldeValue = donnees?['nouveau_solde'];
+    if (soldeValue is double) return soldeValue;
+    if (soldeValue is int) return soldeValue.toDouble();
+    if (soldeValue is String) return double.tryParse(soldeValue) ?? 0.0;
+    return 0.0;
+  }
 
   // Vérifications de statut
   bool get isSuccess => succes;
@@ -202,5 +241,44 @@ class TransactionsResponse {
   @override
   String toString() {
     return 'TransactionsResponse(succes: $succes, message: $message, count: ${transactions.length})';
+  }
+}
+
+/// Réponse de liste des distributeurs
+class DistributeursResponse {
+  final bool succes;
+  final String message;
+  final Map<String, dynamic>? donnees;
+  final Map<String, dynamic>? erreurs;
+
+  DistributeursResponse({
+    required this.succes,
+    required this.message,
+    this.donnees,
+    this.erreurs,
+  });
+
+  // Constructeur depuis JSON
+  factory DistributeursResponse.fromJson(Map<String, dynamic> json) {
+    return DistributeursResponse(
+      succes: json['succes'] ?? false,
+      message: json['message'] ?? '',
+      donnees: json['donnees'],
+      erreurs: json['erreurs'],
+    );
+  }
+
+  // Données spécifiques aux distributeurs
+  List<Map<String, dynamic>> get distributeurs =>
+      List<Map<String, dynamic>>.from(donnees?['distributeurs'] ?? []);
+
+  // Vérifications de statut
+  bool get isSuccess => succes;
+  bool get hasErrors => erreurs != null && erreurs!.isNotEmpty;
+  bool get hasDistributeurs => distributeurs.isNotEmpty;
+
+  @override
+  String toString() {
+    return 'DistributeursResponse(succes: $succes, message: $message, count: ${distributeurs.length})';
   }
 }

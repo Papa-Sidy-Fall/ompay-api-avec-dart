@@ -1,4 +1,4 @@
-// 📨 Modèles de requêtes pour les transactions
+//  Modèles de requêtes pour les transactions
 // Basés sur les formats Swagger de l'API OmPay
 
 /// Requête de paiement (nécessite OTP)
@@ -11,7 +11,7 @@ class TransactionPayRequest {
     required this.description,
   });
 
-  // Validation selon Swagger
+  // Validation selon Swagger 
   bool get isValid =>
       montant > 0 &&
       description.trim().isNotEmpty;

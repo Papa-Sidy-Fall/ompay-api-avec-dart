@@ -3,7 +3,7 @@ import 'user.dart';
 class Transaction {
   final String uuid;
   final String utilisateurUuid;
-  final String type; // 'payer', 'transfert', 'depot'
+  final String type; // 'paiement', 'transfert', 'depot'
   final double montant;
   final String description;
   final String? destinataireUuid;
@@ -29,11 +29,24 @@ class Transaction {
 
   // Constructeur depuis JSON (API response)
   factory Transaction.fromJson(Map<String, dynamic> json) {
+    // Conversion sécurisée du montant
+    final montantValue = json['montant'];
+    double montant;
+    if (montantValue is double) {
+      montant = montantValue;
+    } else if (montantValue is int) {
+      montant = montantValue.toDouble();
+    } else if (montantValue is String) {
+      montant = double.tryParse(montantValue) ?? 0.0;
+    } else {
+      montant = 0.0;
+    }
+
     return Transaction(
       uuid: json['uuid'] ?? '',
       utilisateurUuid: json['utilisateur_uuid'] ?? '',
       type: json['type'] ?? '',
-      montant: (json['montant'] ?? 0).toDouble(),
+      montant: montant,
       description: json['description'] ?? '',
       destinataireUuid: json['destinataire_uuid'],
       statut: json['statut'] ?? 'en_attente',
@@ -63,7 +76,7 @@ class Transaction {
   bool get isCredit => montant > 0;
   double get montantAbsolu => montant.abs();
 
-  bool get isPayee => type == 'payer';
+  bool get isPaiement => type == 'paiement';
   bool get isTransfert => type == 'transfert';
   bool get isDepot => type == 'depot';
 
@@ -74,7 +87,7 @@ class Transaction {
   // Formatage pour affichage
   String get typeIcon {
     switch (type) {
-      case 'payer':
+      case 'paiement':
         return '💳';
       case 'transfert':
         return '💸';
