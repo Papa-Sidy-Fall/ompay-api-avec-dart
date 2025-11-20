@@ -1,4 +1,4 @@
-// 📥 Modèles de réponses pour les transactions
+// Modèles de réponses pour les transactions
 // Basés sur les formats Swagger de l'API OmPay
 
 /// Réponse de paiement (nécessite OTP)

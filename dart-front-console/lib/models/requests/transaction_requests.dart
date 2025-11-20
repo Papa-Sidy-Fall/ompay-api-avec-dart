@@ -1,4 +1,4 @@
-// 📨 Modèles de requêtes pour les transactions
+//  Modèles de requêtes pour les transactions
 // Basés sur les formats Swagger de l'API OmPay
 
 /// Requête de paiement (nécessite OTP)
