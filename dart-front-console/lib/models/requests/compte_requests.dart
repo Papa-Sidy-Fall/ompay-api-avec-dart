@@ -1,32 +1,38 @@
-// 📨 Modèles de requêtes pour les opérations de compte
+//Modèles de requêtes pour les opérations de compte
 // Basés sur les formats Swagger de l'API OmPay
 
-/// Requête de paiement marchand
+/// Requête de paiement (marchand ou vers numéro de téléphone)
 class PayRequest {
   final double montant;
-  final String codeMarchand;
+  final String? codeMarchand;
+  final String? numeroDestinataire;
 
   PayRequest({
     required this.montant,
-    required this.codeMarchand,
+    this.codeMarchand,
+    this.numeroDestinataire,
   });
 
-  // Validation selon Swagger
+  // Validation selon Swagger - au moins un des deux champs doit être fourni
   bool get isValid =>
       montant > 0 &&
-      codeMarchand.trim().isNotEmpty;
+      (codeMarchand?.trim().isNotEmpty == true || numeroDestinataire?.trim().isNotEmpty == true);
 
   // Conversion vers JSON pour l'API
   Map<String, dynamic> toJson() {
-    return {
-      'montant': montant,
-      'code_marchand': codeMarchand.trim(),
-    };
+    final Map<String, dynamic> data = {'montant': montant};
+    if (codeMarchand != null && codeMarchand!.trim().isNotEmpty) {
+      data['code_marchand'] = codeMarchand!.trim();
+    }
+    if (numeroDestinataire != null && numeroDestinataire!.trim().isNotEmpty) {
+      data['numero_destinataire'] = numeroDestinataire!.trim();
+    }
+    return data;
   }
 
   @override
   String toString() {
-    return 'PayRequest(montant: $montant, codeMarchand: $codeMarchand)';
+    return 'PayRequest(montant: $montant, codeMarchand: $codeMarchand, numeroDestinataire: $numeroDestinataire)';
   }
 }
 

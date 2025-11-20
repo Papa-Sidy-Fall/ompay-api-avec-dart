@@ -16,8 +16,12 @@ class Solde {
 
   // Constructeur depuis JSON (API response)
   factory Solde.fromJson(Map<String, dynamic> json) {
+    // Conversion sécurisée du montant (peut être String, int ou double depuis Laravel)
+    final rawMontant = json['solde'] ?? json['montant'] ?? 0;
+    final montant = rawMontant is num ? rawMontant.toDouble() : double.tryParse(rawMontant.toString()) ?? 0.0;
+
     return Solde(
-      montant: (json['solde'] ?? json['montant'] ?? 0).toDouble(),
+      montant: montant,
       devise: json['devise'] ?? 'FCFA',
       derniereMiseAJour: json['derniere_mise_a_jour'] != null
           ? DateTime.parse(json['derniere_mise_a_jour'])
@@ -124,13 +128,14 @@ extension SoldeCalculator on List<double> {
   }
 }
 
-// 🔄 Classe utilitaire pour les calculs de solde
+// Classe utilitaire pour les calculs de solde
 class SoldeUtils {
   // Calculer le solde depuis une liste de transactions
   static Solde fromTransactions(List<Map<String, dynamic>> transactions) {
     double total = 0;
     for (final transaction in transactions) {
-      total += (transaction['montant'] ?? 0).toDouble();
+      final rawMontant = transaction['montant'] ?? 0;
+      total += rawMontant is num ? rawMontant.toDouble() : double.tryParse(rawMontant.toString()) ?? 0.0;
     }
 
     return Solde(

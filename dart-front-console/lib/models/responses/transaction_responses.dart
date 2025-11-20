@@ -27,7 +27,15 @@ class TransactionPayResponse {
 
   // Données spécifiques au paiement
   String? get transactionId => donnees?['transaction_id'];
-  double? get montant => donnees?['montant']?.toDouble();
+
+  double? get montant {
+    final montantValue = donnees?['montant'];
+    if (montantValue is double) return montantValue;
+    if (montantValue is int) return montantValue.toDouble();
+    if (montantValue is String) return double.tryParse(montantValue);
+    return null;
+  }
+
   String? get description => donnees?['description'];
   bool get otpRequired => donnees?['otp_required'] ?? false;
   DateTime? get expireAt => donnees?['expire_at'] != null
@@ -70,7 +78,15 @@ class TransactionTransferResponse {
 
   // Données spécifiques au transfert
   String? get transactionId => donnees?['transaction_id'];
-  double? get montant => donnees?['montant']?.toDouble();
+
+  double? get montant {
+    final montantValue = donnees?['montant'];
+    if (montantValue is double) return montantValue;
+    if (montantValue is int) return montantValue.toDouble();
+    if (montantValue is String) return double.tryParse(montantValue);
+    return null;
+  }
+
   String? get destinataireUuid => donnees?['destinataire_uuid'];
   String? get description => donnees?['description'];
   bool get otpRequired => donnees?['otp_required'] ?? false;
@@ -113,8 +129,21 @@ class TransactionDepotResponse {
   }
 
   // Données spécifiques au dépôt
-  double? get nouveauSolde => donnees?['nouveau_solde']?.toDouble();
-  double? get montantDepose => donnees?['montant_depose']?.toDouble();
+  double? get nouveauSolde {
+    final soldeValue = donnees?['nouveau_solde'];
+    if (soldeValue is double) return soldeValue;
+    if (soldeValue is int) return soldeValue.toDouble();
+    if (soldeValue is String) return double.tryParse(soldeValue);
+    return null;
+  }
+
+  double? get montantDepose {
+    final montantValue = donnees?['montant_depose'];
+    if (montantValue is double) return montantValue;
+    if (montantValue is int) return montantValue.toDouble();
+    if (montantValue is String) return double.tryParse(montantValue);
+    return null;
+  }
 
   // Vérifications de statut
   bool get isSuccess => succes;

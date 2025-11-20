@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:ompay_console/services/api_client.dart';
+import 'package:ompay_console/models/models.dart';
 
 const String baseUrl = 'http://127.0.0.1:8000/api';
 
@@ -120,14 +121,16 @@ Future<String?> handleRegister(ApiClient apiClient) async {
   }
 
   try {
-    final response = await apiClient.auth.register(
-      nom: nom,
-      telephone: telephone,
-      pin: pin,
-    );
+    final request = RegisterRequest(nom: nom, telephone: telephone, pin: pin);
+    if (!request.isValid) {
+      print('❌ Données invalides');
+      return null;
+    }
 
-    if (response['succes'] == true) {
-      print(' ${response['message']}');
+    final response = await apiClient.auth.register(request);
+
+    if (response.isSuccess) {
+      print('✅ ${response.message}');
       print('📱 Un code OTP a été envoyé à votre téléphone');
 
       // Demander le code OTP pour finaliser l'inscription
@@ -135,32 +138,33 @@ Future<String?> handleRegister(ApiClient apiClient) async {
       final otpCode = stdin.readLineSync()?.trim() ?? '';
 
       if (otpCode.isEmpty) {
-        print(' Code OTP requis pour finaliser l\'inscription');
+        print('❌ Code OTP requis pour finaliser l\'inscription');
         return null;
       }
 
       // Vérifier l'OTP pour l'inscription
-      final otpResponse = await apiClient.otp.verifyOtp(
+      final otpRequest = VerifyOtpRequest(
         telephone: telephone,
         code: otpCode,
         type: 'inscription',
       );
 
-      if (otpResponse['succes'] == true) {
-        final token = otpResponse['donnees']['token'];
-        print(' Inscription finalisée avec succès !');
-        print(' Vous pouvez maintenant vous connecter.');
-        return token;
+      final otpResponse = await apiClient.otp.verifyOtp(otpRequest);
+
+      if (otpResponse.isSuccess && otpResponse.hasToken) {
+        print('✅ Inscription finalisée avec succès !');
+        print('🔑 Vous pouvez maintenant vous connecter.');
+        return otpResponse.token;
       } else {
-        print(' ${otpResponse['message']}');
+        print('❌ ${otpResponse.message}');
         return null;
       }
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
       return null;
     }
   } catch (e) {
-    print(' Erreur lors de l\'inscription: $e');
+    print('❌ Erreur lors de l\'inscription: $e');
     return null;
   }
 }
@@ -180,44 +184,48 @@ Future<String?> handleLogin(ApiClient apiClient) async {
   }
 
   try {
-    final response = await apiClient.auth.login(
-      telephone: telephone,
-      pin: pin,
-    );
+    final request = LoginRequest(telephone: telephone, pin: pin);
+    if (!request.isValid) {
+      print('❌ Téléphone et PIN requis');
+      return null;
+    }
 
-    if (response['succes'] == true) {
-      print(' ${response['message']}');
+    final response = await apiClient.auth.login(request);
+
+    if (response.isSuccess) {
+      print('✅ ${response.message}');
 
       // Demander le code OTP
       stdout.write('Code OTP reçu : ');
       final otpCode = stdin.readLineSync()?.trim() ?? '';
 
       if (otpCode.isEmpty) {
-        print(' Code OTP requis');
+        print('❌ Code OTP requis');
         return null;
       }
 
       // Vérifier l'OTP
-      final otpResponse = await apiClient.otp.verifyOtp(
+      final otpRequest = VerifyOtpRequest(
         telephone: telephone,
         code: otpCode,
         type: 'connexion',
       );
 
-      if (otpResponse['succes'] == true) {
-        final token = otpResponse['donnees']['token'];
-        print(' Authentification réussie !');
-        return token;
+      final otpResponse = await apiClient.otp.verifyOtp(otpRequest);
+
+      if (otpResponse.isSuccess && otpResponse.hasToken) {
+        print('✅ Authentification réussie !');
+        return otpResponse.token;
       } else {
-        print(' ${otpResponse['message']}');
+        print('❌ ${otpResponse.message}');
         return null;
       }
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
       return null;
     }
   } catch (e) {
-    print(' Erreur lors de la connexion: $e');
+    print('❌ Erreur lors de la connexion: $e');
     return null;
   }
 }
@@ -228,18 +236,18 @@ Future<void> handleGetBalance(ApiClient apiClient) async {
   try {
     final response = await apiClient.compte.getCompte();
 
-    if (response['succes'] == true) {
-      final user = response['donnees']['utilisateur'];
-      final solde = response['donnees']['solde'];
+    if (response.isSuccess) {
+      final user = response.utilisateur;
+      final solde = response.solde;
 
-      print('👤 ${user['nom']}');
-      print('📱 ${user['telephone']}');
-      print(' Solde: $solde FCFA');
+      print('👤 ${user?['nom']}');
+      print('📱 ${user?['telephone']}');
+      print('💰 Solde: $solde FCFA');
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors de la récupération du solde: $e');
+    print('❌ Erreur lors de la récupération du solde: $e');
   }
 }
 
@@ -247,10 +255,10 @@ Future<void> handleGetTransactions(ApiClient apiClient) async {
   print('\n=== Mes transactions ===');
 
   try {
-    final response = await apiClient.compte.getTransactions(0); // userId sera géré par l'API
+    final response = await apiClient.transaction.getTransactions();
 
-    if (response['succes'] == true) {
-      final transactions = response['donnees']['transactions'] as List;
+    if (response.isSuccess) {
+      final transactions = response.transactions;
 
       if (transactions.isEmpty) {
         print('📝 Aucune transaction trouvée');
@@ -258,23 +266,17 @@ Future<void> handleGetTransactions(ApiClient apiClient) async {
       }
 
       print('📊 Transactions (${transactions.length}):');
-      for (var transaction in transactions) {
-        final type = transaction['type'];
-        final montant = transaction['montant'];
-        final description = transaction['description'];
-        final statut = transaction['statut'];
-        final date = transaction['created_at'];
+      for (var transactionData in transactions) {
+        // Créer un objet Transaction depuis les données JSON
+        final transaction = Transaction.fromJson(transactionData);
 
-        final typeIcon = type == 'payer' ? '💳' : type == 'transfert' ? '💸' : '📥';
-        final montantStr = montant < 0 ? '$montant' : '+$montant';
-
-        print('$typeIcon $type: $montantStr FCFA - $description ($statut) - $date');
+        print('${transaction.typeIcon} ${transaction.type}: ${transaction.montantFormatted} - ${transaction.description} (${transaction.statut})');
       }
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors de la récupération des transactions: $e');
+    print('❌ Erreur lors de la récupération des transactions: $e');
   }
 }
 
@@ -285,29 +287,50 @@ Future<void> handlePay(ApiClient apiClient) async {
   final montantStr = stdin.readLineSync()?.trim() ?? '';
   final montant = double.tryParse(montantStr);
 
-  stdout.write('Code marchand : ');
-  final codeMarchand = stdin.readLineSync()?.trim() ?? '';
+  stdout.write('Code marchand (ex: ORANGE123, WAVE456, FREE789) ou numéro de téléphone : ');
+  final inputCode = stdin.readLineSync()?.trim() ?? '';
 
-  if (montant == null || montant <= 0 || codeMarchand.isEmpty) {
-    print(' Montant positif et code marchand requis');
+  if (montant == null || montant <= 0 || inputCode.isEmpty) {
+    print(' Montant positif et destinataire requis');
     return;
   }
 
   try {
-    final response = await apiClient.compte.payer(
-      userId: 0, // Sera géré par l'API avec le token
+    // Déterminer automatiquement si c'est un code marchand ou un numéro de téléphone
+    String? codeMarchandPay;
+    String? numeroDestinatairePay;
+
+    // Si ça contient "+" ou commence par un chiffre suivi d'autres chiffres, c'est un numéro de téléphone
+    if (inputCode.startsWith('+') || RegExp(r'^\d{8,}').hasMatch(inputCode)) {
+      numeroDestinatairePay = inputCode;
+    } else {
+      codeMarchandPay = inputCode;
+    }
+
+    final request = PayRequest(
       montant: montant,
-      codeMarchand: codeMarchand,
+      codeMarchand: codeMarchandPay,
+      numeroDestinataire: numeroDestinatairePay,
     );
 
-    if (response['succes'] == true) {
-      print(' ${response['message']}');
-      print(' Nouveau solde: ${response['donnees']['nouveau_solde']} FCFA');
+    if (!request.isValid) {
+      print('❌ Données invalides');
+      return;
+    }
+
+    final response = await apiClient.compte.payer(
+      userId: 0, // Sera géré par l'API avec le token
+      request: request,
+    );
+
+    if (response.isSuccess) {
+      print('✅ ${response.message}');
+      print('💰 Nouveau solde: ${response.nouveauSolde} FCFA');
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors du paiement: $e');
+    print('❌ Erreur lors du paiement: $e');
   }
 }
 
@@ -327,20 +350,25 @@ Future<void> handleTransfer(ApiClient apiClient) async {
   }
 
   try {
+    final request = TransferRequest(montant: montant, numeroDestinataire: numeroDestinataire);
+    if (!request.isValid) {
+      print('❌ Données invalides');
+      return;
+    }
+
     final response = await apiClient.compte.transfert(
       userId: 0, // Sera géré par l'API avec le token
-      montant: montant,
-      numeroDestinataire: numeroDestinataire,
+      request: request,
     );
 
-    if (response['succes'] == true) {
-      print(' ${response['message']}');
-      print(' Nouveau solde: ${response['donnees']['nouveau_solde']} FCFA');
+    if (response.isSuccess) {
+      print('✅ ${response.message}');
+      print('💰 Nouveau solde: ${response.nouveauSolde} FCFA');
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors du transfert: $e');
+    print('❌ Erreur lors du transfert: $e');
   }
 }
 
@@ -350,24 +378,24 @@ Future<void> handleGetAccountInfo(ApiClient apiClient) async {
   try {
     final response = await apiClient.compte.getCompte();
 
-    if (response['succes'] == true) {
-      final user = response['donnees']['utilisateur'];
-      final solde = response['donnees']['solde'];
-      final qrCode = response['donnees']['qr_code'];
+    if (response.isSuccess) {
+      final user = response.utilisateur;
+      final solde = response.solde;
+      final qrCode = response.qrCode;
 
       print('👤 Informations utilisateur:');
-      print('   ID: ${user['id']}');
-      print('   UUID: ${user['uuid']}');
-      print('   Nom: ${user['nom']}');
-      print('   Téléphone: ${user['telephone']}');
-      print('   Statut: ${user['statut']}');
-      print(' Solde: $solde FCFA');
+      print('   ID: ${user?['id']}');
+      print('   UUID: ${user?['uuid']}');
+      print('   Nom: ${user?['nom']}');
+      print('   Téléphone: ${user?['telephone']}');
+      print('   Statut: ${user?['statut']}');
+      print('💰 Solde: $solde FCFA');
       print('📱 QR Code: ${qrCode ?? 'Non disponible'}');
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors de la récupération des informations du compte: $e');
+    print('❌ Erreur lors de la récupération des informations du compte: $e');
   }
 }
 
@@ -392,19 +420,22 @@ Future<void> handleDepot(ApiClient apiClient) async {
   }
 
   try {
-    final response = await apiClient.transaction.depot(
-      montant: montant,
-      description: description,
-    );
+    final request = TransactionDepotRequest(montant: montant, description: description);
+    if (!request.isValid) {
+      print('❌ Données invalides');
+      return;
+    }
 
-    if (response['succes'] == true) {
-      print(' ${response['message']}');
-      print(' Nouveau solde: ${response['donnees']['nouveau_solde']} FCFA');
+    final response = await apiClient.transaction.depot(request);
+
+    if (response.isSuccess) {
+      print('✅ ${response.message}');
+      print('💰 Nouveau solde: ${response.nouveauSolde} FCFA');
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors du dépôt: $e');
+    print('❌ Erreur lors du dépôt: $e');
   }
 }
 
@@ -414,8 +445,8 @@ Future<void> handleGetDistributeurs(ApiClient apiClient) async {
   try {
     final response = await apiClient.distributeur.getDistributeurs();
 
-    if (response['succes'] == true) {
-      final distributeurs = response['donnees'] as List;
+    if (response.isSuccess) {
+      final distributeurs = response.distributeurs;
 
       if (distributeurs.isEmpty) {
         print('🏪 Aucun distributeur trouvé');
@@ -427,9 +458,9 @@ Future<void> handleGetDistributeurs(ApiClient apiClient) async {
         print('📍 ${distributeur['nom']} - ${distributeur['adresse']}');
       }
     } else {
-      print(' ${response['message']}');
+      print('❌ ${response.message}');
     }
   } catch (e) {
-    print(' Erreur lors de la récupération des distributeurs: $e');
+    print('❌ Erreur lors de la récupération des distributeurs: $e');
   }
 }

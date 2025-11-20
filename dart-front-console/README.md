@@ -63,8 +63,27 @@ Les modèles dans `lib/models/` représentent les entités de l'API :
 ##### **Entités de base** (`user.dart`, `transaction.dart`, etc.)
 - **Sérialisation/Désérialisation** : Conversion automatique JSON ↔ objets Dart
 - **Type safety** : Propriétés typées au lieu de `Map<String, dynamic>`
+- **Champs optionnels** : Tous les champs sont optionnels selon les réponses Swagger
+- **Conversion sécurisée** : Gestion des types mixtes (String/int/double) depuis Laravel
 - **Méthodes utilitaires** : Logique métier et formatage inclus
 - **Relations** : Gestion des liens entre entités (ex: Transaction → User)
+
+> **🔧 Note importante :** Les modèles correspondent **exactement** aux spécifications Swagger. Chaque endpoint retourne des champs différents :
+>
+> - **Auth** (`/auth/register`) : `id`, `uuid`, `nom`, `telephone`
+> - **Compte** (`/compte`) : `id`, `nom`, `telephone`, `statut`
+> - **Transactions** : `nom`, `telephone` (objets simplifiés)
+>
+> **Conversion sécurisée des nombres :**
+> ```dart
+> double get solde {
+>   final value = donnees?['solde'];
+>   if (value is double) return value;
+>   if (value is int) return value.toDouble();
+>   if (value is String) return double.tryParse(value) ?? 0.0;
+>   return 0.0;
+> }
+> ```
 
 ##### **Modèles de requêtes** (`lib/models/requests/`)
 Basés sur les formats Swagger de l'API OmPay :
@@ -194,52 +213,73 @@ abstract class ApiService {
 
 ### 2. **Services spécialisés**
 
-#### **AuthService** - Gestion de l'authentification
+#### **AuthService** - Gestion de l'authentification avec modèles typés
 ```dart
 class AuthService extends ApiService {
-  Future<Map<String, dynamic>> register({...});
-  Future<Map<String, dynamic>> login({...});
+  // AVANT : Paramètres simples
+  // Future<Map<String, dynamic>> register({required String nom, ...});
+
+  // APRÈS : Modèles typés
+  Future<RegisterResponse> register(RegisterRequest request);
+  Future<LoginResponse> login(LoginRequest request);
 }
 ```
-- **register()** : Inscription d'un nouvel utilisateur
-- **login()** : Connexion avec vérification des identifiants
+- **register(request)** : Inscription avec modèle `RegisterRequest` → `RegisterResponse`
+- **login(request)** : Connexion avec modèle `LoginRequest` → `LoginResponse`
 
-#### **OtpService** - Gestion des codes OTP
+#### **OtpService** - Gestion des codes OTP avec modèles typés
 ```dart
 class OtpService extends ApiService {
-  Future<Map<String, dynamic>> verifyOtp({...});
-  Future<Map<String, dynamic>> resendOtp({...});
+  // AVANT : Paramètres simples
+  // Future<Map<String, dynamic>> verifyOtp({required String telephone, ...});
+
+  // APRÈS : Modèles typés
+  Future<VerifyOtpResponse> verifyOtp(VerifyOtpRequest request);
+  Future<ResendOtpResponse> resendOtp(ResendOtpRequest request);
 }
 ```
-- **verifyOtp()** : Vérification d'un code OTP (retourne un token JWT)
-- **resendOtp()** : Renvoi d'un nouveau code OTP
+- **verifyOtp(request)** : Vérification avec modèle `VerifyOtpRequest` → `VerifyOtpResponse`
+- **resendOtp(request)** : Renvoi avec modèle `ResendOtpRequest` → `ResendOtpResponse`
 
-#### **CompteService** - Gestion du compte utilisateur
+#### **CompteService** - Gestion du compte utilisateur avec modèles typés
 ```dart
 class CompteService extends ApiService {
-  Future<Map<String, dynamic>> getCompte();
-  Future<Map<String, dynamic>> getSolde(int userId);
-  Future<Map<String, dynamic>> payer({...});
-  Future<Map<String, dynamic>> transfert({...});
-  Future<Map<String, dynamic>> getTransactions(int userId, {...});
+  // AVANT : Paramètres simples
+  // Future<Map<String, dynamic>> getCompte();
+  // Future<Map<String, dynamic>> payer({required int userId, ...});
+
+  // APRÈS : Modèles typés
+  Future<CompteInfoResponse> getCompte();
+  Future<SoldeResponse> getSolde(int userId);
+  Future<PayResponse> payer({required int userId, required PayRequest request});
+  Future<TransferResponse> transfert({required int userId, required TransferRequest request});
+  Future<TransactionsResponse> getTransactions(int userId, {String? type, int? perPage});
 }
 ```
 
-#### **TransactionService** - Gestion des transactions
+#### **TransactionService** - Gestion des transactions avec modèles typés
 ```dart
 class TransactionService extends ApiService {
-  Future<Map<String, dynamic>> pay({...});
-  Future<Map<String, dynamic>> transfer({...});
-  Future<Map<String, dynamic>> depot({...});
-  Future<Map<String, dynamic>> getTransactions();
-  Future<Map<String, dynamic>> getTransaction(String uuid);
+  // AVANT : Paramètres simples
+  // Future<Map<String, dynamic>> pay({required double montant, ...});
+
+  // APRÈS : Modèles typés
+  Future<TransactionPayResponse> pay(TransactionPayRequest request);
+  Future<TransactionTransferResponse> transfer(TransactionTransferRequest request);
+  Future<TransactionDepotResponse> depot(TransactionDepotRequest request);
+  Future<TransactionListResponse> getTransactions();
+  Future<TransactionDetailResponse> getTransaction(String uuid);
 }
 ```
 
-#### **DistributeurService** - Gestion des distributeurs
+#### **DistributeurService** - Gestion des distributeurs avec modèles typés
 ```dart
 class DistributeurService extends ApiService {
-  Future<Map<String, dynamic>> getDistributeurs();
+  // AVANT : Paramètres simples
+  // Future<Map<String, dynamic>> getDistributeurs();
+
+  // APRÈS : Modèles typés
+  Future<DistributeursResponse> getDistributeurs();
 }
 ```
 
@@ -577,24 +617,53 @@ class TransactionListResponse {
 }
 ```
 
-#### **User** - Utilisateur du système
+#### **User** - Utilisateur du système (champs adaptés par endpoint)
 ```dart
 class User {
-  final int id;
-  final String uuid;
-  final String nom;
-  final String telephone;
-  final String statut; // 'actif', 'inactif', 'admin'
-  final double solde;
+  // Tous les champs sont optionnels car chaque endpoint retourne des champs différents
+  final int? id;
+  final String? uuid;
+  final String? nom;
+  final String? telephone;
+  final String? email;
+  final String? statut; // 'actif', 'inactif', 'admin'
+  final double? solde;
   final String? qrCode;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
-  // Méthodes utilitaires
+  // Méthodes utilitaires (vérifient la nullité)
   bool get isActive => statut == 'actif';
   bool get isAdmin => statut == 'admin';
 
-  // Sérialisation
-  factory User.fromJson(Map<String, dynamic> json);
-  Map<String, dynamic> toJson();
+  // Sérialisation - ne mappe que les champs présents dans le JSON
+  factory User.fromJson(Map<String, dynamic> json) {
+    // Exemples selon endpoint :
+    // Auth: {id, uuid, nom, telephone}
+    // Compte: {id, nom, telephone, statut}
+    // Transaction: {nom, telephone} (objet simplifié)
+    return User(
+      id: json['id'],
+      uuid: json['uuid'],
+      nom: json['nom'],
+      telephone: json['telephone'],
+      email: json['email'],
+      statut: json['statut'],
+      solde: json['solde'] != null ? _parseSolde(json['solde']) : null,
+      qrCode: json['qr_code'],
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+    );
+  }
+
+  static double? _parseSolde(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  Map<String, dynamic> toJson(); // N'inclut que les champs non-null
 }
 ```
 
@@ -720,18 +789,11 @@ Future<String?> handleRegister(ApiClient apiClient) async {
   }
 
   try {
-    // 📡 Appel API avec sérialisation automatique
-    final response = await apiClient.auth.register(
-      nom: request.nom,
-      telephone: request.telephone,
-      pin: request.pin,
-    );
+    // 📡 Appel API avec modèle de requête typé
+    final response = await apiClient.auth.register(request);
 
-    // 📥 Utilisation du modèle de réponse
-    final registerResponse = RegisterResponse.fromJson(response);
-
-    if (registerResponse.isSuccess) {
-      print('✅ ${registerResponse.message}');
+    if (response.isSuccess) {
+      print('✅ ${response.message}');
       print('📱 Un code OTP a été envoyé à votre téléphone');
 
       // 🔐 Vérification OTP avec modèle typé
@@ -749,23 +811,18 @@ Future<String?> handleRegister(ApiClient apiClient) async {
         return null;
       }
 
-      final otpResponse = await apiClient.otp.verifyOtp(
-        telephone: otpRequest.telephone,
-        code: otpRequest.code,
-        type: otpRequest.type,
-      );
+      // 📡 Appel API avec modèle de requête typé
+      final otpResponse = await apiClient.otp.verifyOtp(otpRequest);
 
-      final verifyResponse = VerifyOtpResponse.fromJson(otpResponse);
-
-      if (verifyResponse.isSuccess && verifyResponse.hasToken) {
+      if (otpResponse.isSuccess && otpResponse.hasToken) {
         print('✅ Inscription finalisée avec succès !');
-        return verifyResponse.token;  // 🔑 Token JWT
+        return otpResponse.token;  // 🔑 Token JWT
       } else {
-        print('❌ ${verifyResponse.message}');
+        print('❌ ${otpResponse.message}');
         return null;
       }
     } else {
-      print('❌ ${registerResponse.message}');
+      print('❌ ${response.message}');
       return null;
     }
   } catch (e) {
@@ -1037,6 +1094,26 @@ Si vous voulez utiliser `dio` au lieu de `http` :
 dart pub get  # Réinstaller les dépendances
 dart analyze  # Vérifier les erreurs
 ```
+
+### Erreur "Marchand non trouvé ou inactif" (404)
+**Cause :** Code marchand incorrect ou base de données non initialisée.
+
+**Solution :**
+1. Utilisez un des codes marchands suivants : `ORANGE123`, `WAVE456`, `FREE789`, `EMONEY001`, `YOOMEE002`
+2. Vérifiez que la base de données a été réinitialisée avec les seeders : `GET /api/admin/reset-database?secret=ompay-admin-2025`
+
+### Erreur "Accès non autorisé" (403) pour les transactions
+**Cause :** Utilisation de l'endpoint `/compte/{id}/transactions` avec un ID incorrect.
+
+**Solution :** L'application utilise maintenant l'endpoint `/transactions` qui récupère automatiquement les transactions de l'utilisateur connecté via le token JWT.
+
+### Erreur "type 'String' is not a subtype of type 'double'"
+**Cause :** Laravel retourne souvent les nombres comme des chaînes de caractères en JSON.
+
+**Solution :** Les modèles incluent une conversion sécurisée automatique. Si l'erreur persiste :
+1. Vérifiez que vous utilisez les modèles typés (`RegisterResponse`, `CompteInfoResponse`, etc.)
+2. Les getters de montants/soldes gèrent automatiquement la conversion String → double
+3. Si nécessaire, utilisez `double.tryParse(value) ?? 0.0` pour les conversions manuelles
 
 ---
 
