@@ -11,7 +11,7 @@ class TransactionPayRequest {
     required this.description,
   });
 
-  // Validation selon Swagger
+  // Validation selon Swagger 
   bool get isValid =>
       montant > 0 &&
       description.trim().isNotEmpty;

@@ -11,7 +11,7 @@ class AuthService extends ApiService {
   }) async {
     return await post('/auth/register', {
       'nom': nom,
-      'telephone': telephone,
+      'telephone': telephone, //c'est pas bon
       'pin': pin,
     });
   }
